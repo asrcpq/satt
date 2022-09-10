@@ -106,9 +106,9 @@ impl Satt {
 			let no_eol = iter.next().is_some();
 			let mut lines = Vec::new();
 			for _ in 0..line_count {
-				let _bufsize = f.read_until(b'\n', &mut linebuf)?;
+				let buflen = f.read_until(b'\n', &mut linebuf)?;
 				// this test 1. non empty read, 2. last eol
-				assert_eq!(*linebuf.last().unwrap(), b'\n');
+				assert_eq!(linebuf[buflen - 1], b'\n');
 				linebuf.pop();
 				lines.push(std::mem::take(&mut linebuf));
 			}
