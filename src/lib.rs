@@ -41,14 +41,19 @@ impl Satt {
 	pub fn archive_filelist(root: &PathBuf, filelist: &[PathBuf]) -> Self {
 		let mut files = Vec::new();
 		let mut linebuf = Vec::new();
-		let mut no_eol = false;
 		for filename in filelist.into_iter() {
 			let f = std::fs::File::open(root.join(&filename)).unwrap();
 			let mut f = BufReader::new(f);
 			let mut lines = Vec::new();
+			let mut no_eol = false;
 			loop {
 				let buflen = f.read_until(b'\n', &mut linebuf).unwrap();
-				if buflen == 0 {break}
+				if buflen == 0 {
+					if lines.is_empty() {
+						no_eol = true;
+					}
+					break
+				}
 				if linebuf[buflen - 1] == b'\n' {
 					linebuf.pop();
 				} else {
@@ -70,17 +75,23 @@ impl Satt {
 		Satt {files}
 	}
 
-	pub fn archive_root(root: &PathBuf) -> Self {
-		let mut filelist = get_filelist(root);
+	pub fn archive_root<P: AsRef<Path>>(root: &P) -> Self {
+		let root = root.as_ref().to_path_buf();
+		let mut filelist = get_filelist(&root);
 		filelist.sort_unstable();
-		Self::archive_filelist(root, &filelist)
+		Self::archive_filelist(&root, &filelist)
 	}
 
 	pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), std::io::Error> {
 		let f = std::fs::File::create(path)?;
 		let mut f = BufWriter::new(f);
 		for file in self.files.iter() {
-			writeln!(f, "{} {}", file.path, file.lines.len())?;
+			let line = if file.no_eol {
+				format!("{} {} noeol", file.path, file.lines.len())
+			} else {
+				format!("{} {}", file.path, file.lines.len())
+			};
+			writeln!(f, "{}", line)?;
 			for line in file.lines.iter() {
 				f.write(&line)?;
 				writeln!(f)?;
@@ -135,9 +146,10 @@ impl Satt {
 		result
 	}
 
-	pub fn unarchive(&self, root: &PathBuf) -> Result<(), std::io::Error> {
+	pub fn unarchive<P: AsRef<Path>>(&self, root: P) -> Result<(), std::io::Error> {
+		let root = root.as_ref().to_path_buf();
 		if !root.exists() {
-			std::fs::create_dir(root)?;
+			std::fs::create_dir(&root)?;
 		}
 		assert!(root.read_dir().unwrap().next().is_none());
 		for file in self.files.iter() {

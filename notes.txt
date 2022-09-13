@@ -1,0 +1,7 @@
+changes:
+
+- fix bugs in eol:
+	- empty file marked as having eol
+	- eol not reset for next file
+	- eol not printed in save
+- add binary satt
